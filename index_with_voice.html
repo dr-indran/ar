@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+```
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Voice Controlled AR Object</title>
+
+<!-- Google Model Viewer -->
+<script type="module"
+    src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
+</script>
+
+<style>
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        background: #eeeeee;
+    }
+
+    h2 {
+        margin: 15px;
+    }
+
+    model-viewer {
+        width: 100%;
+        height: 65vh;
+        background-color: #eeeeee;
+    }
+
+    #voiceButton {
+        margin-top: 15px;
+        padding: 14px 25px;
+        font-size: 18px;
+        border: none;
+        border-radius: 8px;
+        background-color: #333333;
+        color: white;
+        cursor: pointer;
+    }
+
+    #voiceButton:active {
+        transform: scale(0.95);
+    }
+
+    #command {
+        margin: 15px;
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    #status {
+        margin: 10px;
+        font-size: 15px;
+        color: #555555;
+    }
+
+</style>
+```
+
+</head>
+
+<body>
+
+```
+<h2>Voice Controlled AR Object</h2>
+
+
+<!-- 3D Model -->
+<model-viewer
+    id="model"
+    src="table.glb"
+    alt="My 3D Model"
+
+    camera-controls
+    auto-rotate
+
+    ar
+    ar-modes="quick-look webxr scene-viewer"
+
+    shadow-intensity="1">
+
+    <!-- AR Button -->
+    <button slot="ar-button">
+        View in AR
+    </button>
+
+</model-viewer>
+
+
+<!-- Voice Control -->
+<button id="voiceButton">
+    🎤 Speak
+</button>
+
+
+<!-- Recognized Command -->
+<div id="command">
+    Say a command...
+</div>
+
+
+<div id="status">
+    Voice control ready
+</div>
+```
+
+<script>
+
+    // Get the model-viewer element
+    const model = document.getElementById("model");
+
+    // Get interface elements
+    const voiceButton = document.getElementById("voiceButton");
+    const commandDisplay = document.getElementById("command");
+    const statusDisplay = document.getElementById("status");
+
+
+    // --------------------------------------------------
+    // Speech Recognition
+    // --------------------------------------------------
+
+    const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+
+    if (!SpeechRecognition) {
+
+        statusDisplay.innerText =
+            "Speech recognition is not supported in this browser.";
+
+        voiceButton.disabled = true;
+
+    }
+    else {
+
+        const recognition = new SpeechRecognition();
+
+        recognition.lang = "en-US";
+
+        recognition.continuous = false;
+
+        recognition.interimResults = false;
+
+
+        // Start listening
+        voiceButton.addEventListener("click", function () {
+
+            statusDisplay.innerText =
+                "Listening... Speak now.";
+
+            recognition.start();
+
+        });
+
+
+        // Speech recognized
+        recognition.onresult = function (event) {
+
+            const command =
+                event.results[0][0].transcript
+                    .toLowerCase()
+                    .trim();
+
+
+            console.log("Voice command:", command);
+
+
+            commandDisplay.innerText =
+                "You said: " + command;
+
+
+            statusDisplay.innerText =
+                "Command received";
+
+
+            processCommand(command);
+
+        };
+
+
+        // Recognition ended
+        recognition.onend = function () {
+
+            statusDisplay.innerText =
+                "Voice control ready";
+
+        };
+
+
+        // Error
+        recognition.onerror = function (event) {
+
+            console.log("Speech recognition error:", event.error);
+
+            statusDisplay.innerText =
+                "Error: " + event.error;
+
+        };
+
+    }
+
+
+    // --------------------------------------------------
+    // COMMAND PROCESSING
+    // --------------------------------------------------
+
+    function processCommand(command) {
+
+
+        // SHRINK
+        if (command.includes("shrink") ||
+            command.includes("smaller")) {
+
+            shrinkObject();
+
+        }
+
+
+        // ENLARGE
+        else if (command.includes("enlarge") ||
+                 command.includes("bigger") ||
+                 command.includes("larger")) {
+
+            enlargeObject();
+
+        }
+
+
+        // LEFT
+        else if (command === "left" ||
+                 command.includes("move left")) {
+
+            moveLeft();
+
+        }
+
+
+        // RIGHT
+        else if (command === "right" ||
+                 command.includes("move right")) {
+
+            moveRight();
+
+        }
+
+
+        // FRONT
+        else if (command === "front" ||
+                 command.includes("move front")) {
+
+            moveFront();
+
+        }
+
+
+        // BACK
+        else if (command === "back" ||
+                 command.includes("move back")) {
+
+            moveBack();
+
+        }
+
+
+        // ROTATE LEFT
+        else if (command.includes("rotate left")) {
+
+            rotateLeft();
+
+        }
+
+
+        // ROTATE RIGHT
+        else if (command.includes("rotate right")) {
+
+            rotateRight();
+
+        }
+
+
+        // RESET
+        else if (command.includes("reset")) {
+
+            resetObject();
+
+        }
+
+
+        else {
+
+            statusDisplay.innerText =
+                "Command not recognized";
+
+        }
+
+    }
+
+
+    // --------------------------------------------------
+    // OBJECT CONTROL
+    // --------------------------------------------------
+
+    function shrinkObject() {
+
+        let currentScale =
+            model.getAttribute("scale");
+
+        let x = currentScale.x * 0.8;
+        let y = currentScale.y * 0.8;
+        let z = currentScale.z * 0.8;
+
+        model.setAttribute(
+            "scale",
+            `${x} ${y} ${z}`
+        );
+
+    }
+
+
+    function enlargeObject() {
+
+        let currentScale =
+            model.getAttribute("scale");
+
+        let x = currentScale.x * 1.2;
+        let y = currentScale.y * 1.2;
+        let z = currentScale.z * 1.2;
+
+        model.setAttribute(
+            "scale",
+            `${x} ${y} ${z}`
+        );
+
+    }
+
+
+    function moveLeft() {
+
+        let current =
+            model.getAttribute("position");
+
+        model.setAttribute(
+            "position",
+            `${current.x - 0.2} ${current.y} ${current.z}`
+        );
+
+    }
+
+
+    function moveRight() {
+
+        let current =
+            model.getAttribute("position");
+
+        model.setAttribute(
+            "position",
+            `${current.x + 0.2} ${current.y} ${current.z}`
+        );
+
+    }
+
+
+    function moveFront() {
+
+        let current =
+            model.getAttribute("position");
+
+        model.setAttribute(
+            "position",
+            `${current.x} ${current.y} ${current.z - 0.2}`
+        );
+
+    }
+
+
+    function moveBack() {
+
+        let current =
+            model.getAttribute("position");
+
+        model.setAttribute(
+            "position",
+            `${current.x} ${current.y} ${current.z + 0.2}`
+        );
+
+    }
+
+
+    function rotateLeft() {
+
+        let current =
+            model.getAttribute("rotation");
+
+        model.setAttribute(
+            "rotation",
+            `${current.x} ${current.y - 15} ${current.z}`
+        );
+
+    }
+
+
+    function rotateRight() {
+
+        let current =
+            model.getAttribute("rotation");
+
+        model.setAttribute(
+            "rotation",
+            `${current.x} ${current.y + 15} ${current.z}`
+        );
+
+    }
+
+
+    function resetObject() {
+
+        model.setAttribute(
+            "scale",
+            "1 1 1"
+        );
+
+        model.setAttribute(
+            "position",
+            "0 0 0"
+        );
+
+        model.setAttribute(
+            "rotation",
+            "0 0 0"
+        );
+
+    }
+
+</script>
+
+</body>
+
+</html>

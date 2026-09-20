@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+```
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Voice Controlled AR Object</title>
+
+<!-- Model Viewer -->
+<script type="module"
+    src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
+</script>
+
+
+<style>
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        background: #eeeeee;
+    }
+
+    h2 {
+        margin: 15px;
+    }
+
+    model-viewer {
+        width: 100%;
+        height: 65vh;
+        background-color: #eeeeee;
+    }
+
+    #commandBox {
+        margin-top: 15px;
+        padding: 12px;
+        width: 70%;
+        max-width: 350px;
+        font-size: 18px;
+        border: 1px solid #888;
+        border-radius: 8px;
+    }
+
+    #executeButton {
+        margin-top: 10px;
+        padding: 12px 22px;
+        font-size: 18px;
+        border: none;
+        border-radius: 8px;
+        background-color: #333333;
+        color: white;
+    }
+
+    #status {
+        margin: 12px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    #help {
+        margin: 10px;
+        font-size: 14px;
+        color: #555555;
+    }
+
+</style>
+```
+
+</head>
+
+<body>
+
+```
+<h2>Voice Controlled AR Object</h2>
+
+
+<!-- ========================================= -->
+<!-- 3D MODEL -->
+<!-- ========================================= -->
+
+<model-viewer
+    id="model"
+    src="table.glb"
+    alt="My 3D Model"
+
+    camera-controls
+    auto-rotate
+
+    ar
+    ar-modes="quick-look webxr scene-viewer"
+
+    shadow-intensity="1">
+
+    <!-- AR Button -->
+    <button slot="ar-button">
+        View in AR
+    </button>
+
+</model-viewer>
+
+
+<!-- ========================================= -->
+<!-- COMMAND INPUT -->
+<!-- ========================================= -->
+
+<input
+    type="text"
+    id="commandBox"
+    placeholder="Tap here and speak"
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="none"
+    spellcheck="false">
+
+
+<br>
+
+
+<button id="executeButton">
+    Execute Command
+</button>
+
+
+<div id="status">
+    Ready
+</div>
+
+
+<div id="help">
+    Try: Shrink, Enlarge, Left, Right, Front, Back,
+    Rotate Left, Rotate Right, Reset
+</div>
+```
+
+<script>
+
+
+    // =========================================
+    // GET THE MODEL
+    // =========================================
+
+    const model =
+        document.getElementById("model");
+
+
+    // =========================================
+    // GET USER INTERFACE ELEMENTS
+    // =========================================
+
+    const commandBox =
+        document.getElementById("commandBox");
+
+    const executeButton =
+        document.getElementById("executeButton");
+
+    const status =
+        document.getElementById("status");
+
+
+    // =========================================
+    // EXECUTE BUTTON
+    // =========================================
+
+    executeButton.addEventListener("click", function () {
+
+        const command =
+            commandBox.value
+                .toLowerCase()
+                .trim();
+
+        if (command === "") {
+
+            status.innerText =
+                "Please enter or speak a command.";
+
+            return;
+        }
+
+
+        status.innerText =
+            "Command: " + command;
+
+
+        processCommand(command);
+
+    });
+
+
+
+    // =========================================
+    // COMMAND PROCESSING
+    // =========================================
+
+    function processCommand(command) {
+
+
+        // -------------------------------
+        // SHRINK
+        // -------------------------------
+
+        if (
+            command.includes("shrink") ||
+            command.includes("smaller")
+        ) {
+
+            shrinkObject();
+
+        }
+
+
+        // -------------------------------
+        // ENLARGE
+        // -------------------------------
+
+        else if (
+            command.includes("enlarge") ||
+            command.includes("bigger") ||
+            command.includes("larger")
+        ) {
+
+            enlargeObject();
+
+        }
+
+
+        // -------------------------------
+        // LEFT
+        // -------------------------------
+
+        else if (
+            command === "left" ||
+            command.includes("move left")
+        ) {
+
+            moveLeft();
+
+        }
+
+
+        // -------------------------------
+        // RIGHT
+        // -------------------------------
+
+        else if (
+            command === "right" ||
+            command.includes("move right")
+        ) {
+
+            moveRight();
+
+        }
+
+
+        // -------------------------------
+        // FRONT
+        // -------------------------------
+
+        else if (
+            command === "front" ||
+            command.includes("move front")
+        ) {
+
+            moveFront();
+
+        }
+
+
+        // -------------------------------
+        // BACK
+        // -------------------------------
+
+        else if (
+            command === "back" ||
+            command.includes("move back")
+        ) {
+
+            moveBack();
+
+        }
+
+
+        // -------------------------------
+        // ROTATE LEFT
+        // -------------------------------
+
+        else if (
+            command.includes("rotate left")
+        ) {
+
+            rotateLeft();
+
+        }
+
+
+        // -------------------------------
+        // ROTATE RIGHT
+        // -------------------------------
+
+        else if (
+            command.includes("rotate right")
+        ) {
+
+            rotateRight();
+
+        }
+
+
+        // -------------------------------
+        // RESET
+        // -------------------------------
+
+        else if (
+            command.includes("reset")
+        ) {
+
+            resetObject();
+
+        }
+
+
+        // -------------------------------
+        // UNKNOWN COMMAND
+        // -------------------------------
+
+        else {
+
+            status.innerText =
+                "Command not recognized: " + command;
+
+        }
+
+    }
+
+
+
+    // =========================================
+    // SHRINK
+    // =========================================
+
+    function shrinkObject() {
+
+        let currentScale =
+            model.getAttribute("scale");
+
+        if (!currentScale) {
+
+            currentScale =
+                { x: 1, y: 1, z: 1 };
+
+        }
+
+
+        let x =
+            currentScale.x * 0.8;
+
+        let y =
+            currentScale.y * 0.8;
+
+        let z =
+            currentScale.z * 0.8;
+
+
+        model.setAttribute(
+            "scale",
+            `${x} ${y} ${z}`
+        );
+
+
+        status.innerText =
+            "Object shrunk";
+
+    }
+
+
+
+    // =========================================
+    // ENLARGE
+    // =========================================
+
+    function enlargeObject() {
+
+        let currentScale =
+            model.getAttribute("scale");
+
+        if (!currentScale) {
+
+            currentScale =
+                { x: 1, y: 1, z: 1 };
+
+        }
+
+
+        let x =
+            currentScale.x * 1.2;
+
+        let y =
+            currentScale.y * 1.2;
+
+        let z =
+            currentScale.z * 1.2;
+
+
+        model.setAttribute(
+            "scale",
+            `${x} ${y} ${z}`
+        );
+
+
+        status.innerText =
+            "Object enlarged";
+
+    }
+
+
+
+    // =========================================
+    // LEFT
+    // =========================================
+
+    function moveLeft() {
+
+        let orbit =
+            model.getAttribute("camera-orbit");
+
+
+        model.setAttribute(
+            "camera-orbit",
+            "-20deg 75deg auto"
+        );
+
+
+        status.innerText =
+            "Moved to left view";
+
+    }
+
+
+
+    // =========================================
+    // RIGHT
+    // =========================================
+
+    function moveRight() {
+
+        model.setAttribute(
+            "camera-orbit",
+            "20deg 75deg auto"
+        );
+
+
+        status.innerText =
+            "Moved to right view";
+
+    }
+
+
+
+    // =========================================
+    // FRONT
+    // =========================================
+
+    function moveFront() {
+
+        model.setAttribute(
+            "camera-orbit",
+            "0deg 75deg auto"
+        );
+
+
+        status.innerText =
+            "Front view";
+
+    }
+
+
+
+    // =========================================
+    // BACK
+    // =========================================
+
+    function moveBack() {
+
+        model.setAttribute(
+            "camera-orbit",
+            "180deg 75deg auto"
+        );
+
+
+        status.innerText =
+            "Back view";
+
+    }
+
+
+
+    // =========================================
+    // ROTATE LEFT
+    // =========================================
+
+    function rotateLeft() {
+
+        model.setAttribute(
+            "orientation",
+            "0deg -20deg 0deg"
+        );
+
+
+        status.innerText =
+            "Rotated left";
+
+    }
+
+
+
+    // =========================================
+    // ROTATE RIGHT
+    // =========================================
+
+    function rotateRight() {
+
+        model.setAttribute(
+            "orientation",
+            "0deg 20deg 0deg"
+        );
+
+
+        status.innerText =
+            "Rotated right";
+
+    }
+
+
+
+    // =========================================
+    // RESET
+    // =========================================
+
+    function resetObject() {
+
+        model.setAttribute(
+            "scale",
+            "1 1 1"
+        );
+
+
+        model.setAttribute(
+            "camera-orbit",
+            "0deg 75deg auto"
+        );
+
+
+        model.setAttribute(
+            "orientation",
+            "0deg 0deg 0deg"
+        );
+
+
+        status.innerText =
+            "Object reset";
+
+    }
+
+
+</script>
+
+</body>
+
+</html>

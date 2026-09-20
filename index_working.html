@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>My First AR App</title>
+
+    <!-- Model Viewer -->
+    <script type="module"
+        src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #eeeeee;
+        }
+
+        h2 {
+            margin: 15px;
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 70vh;
+            background-color: #eeeeee;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>My First AR Object</h2>
+
+    <model-viewer
+    src="table.glb"
+    alt="My 3D Model"
+    camera-controls
+    auto-rotate
+    style="width:100%; height:70vh;">
+</model-viewer>
+
+        <button slot="ar-button">
+            View in AR
+        </button>
+
+    </model-viewer>
+
+</body>
+</html>

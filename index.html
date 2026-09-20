@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+```
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Hand Controlled 3D Model</title>
+
+
+<!-- =========================================
+     MODEL VIEWER
+========================================== -->
+
+<script type="module"
+    src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
+</script>
+
+
+<style>
+
+    body {
+
+        margin: 0;
+
+        background: #111;
+
+        color: white;
+
+        font-family: Arial, sans-serif;
+
+        text-align: center;
+
+    }
+
+
+    h1 {
+
+        margin: 15px;
+
+    }
+
+
+    #status {
+
+        font-size: 18px;
+
+        margin: 10px;
+
+        min-height: 25px;
+
+    }
+
+
+    #main {
+
+        display: flex;
+
+        flex-wrap: wrap;
+
+        justify-content: center;
+
+        gap: 20px;
+
+        width: 95%;
+
+        margin: auto;
+
+    }
+
+
+    #cameraContainer {
+
+        position: relative;
+
+        width: 45%;
+
+        min-width: 350px;
+
+    }
+
+
+    video {
+
+        width: 100%;
+
+        display: block;
+
+        border-radius: 10px;
+
+        transform: scaleX(-1);
+
+    }
+
+
+    canvas {
+
+        position: absolute;
+
+        left: 0;
+
+        top: 0;
+
+        width: 100%;
+
+        height: 100%;
+
+        transform: scaleX(-1);
+
+        pointer-events: none;
+
+    }
+
+
+    #modelContainer {
+
+        width: 45%;
+
+        min-width: 350px;
+
+    }
+
+
+    model-viewer {
+
+        width: 100%;
+
+        height: 500px;
+
+        background: #222;
+
+        border-radius: 10px;
+
+    }
+
+
+    button {
+
+        margin: 20px;
+
+        padding: 12px 25px;
+
+        font-size: 18px;
+
+        cursor: pointer;
+
+    }
+
+</style>
+```
+
+</head>
+
+<body>
+
+<h1>Hand Controlled 3D Model</h1>
+
+<div id="status">
+
+```
+Camera not started
+```
+
+</div>
+
+<div id="main">
+
+```
+<!-- =========================================
+     CAMERA
+========================================== -->
+
+<div id="cameraContainer">
+
+    <video id="video"
+           autoplay
+           muted
+           playsinline>
+    </video>
+
+    <canvas id="canvas"></canvas>
+
+</div>
+
+
+<!-- =========================================
+     GLB MODEL
+========================================== -->
+
+<div id="modelContainer">
+
+    <model-viewer
+        id="model"
+        src="methane.glb"
+        camera-controls
+        shadow-intensity="1"
+        exposure="1">
+
+    </model-viewer>
+
+</div>
+```
+
+</div>
+
+<button id="start">
+
+```
+Start Camera
+```
+
+</button>
+
+<script type="module">
+
+
+/* ==========================================
+   MEDIAPIPE IMPORT
+========================================== */
+
+import {
+
+    HandLandmarker,
+
+    FilesetResolver
+
+}
+
+from
+"https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/+esm";
+
+
+/* ==========================================
+   HTML ELEMENTS
+========================================== */
+
+const video =
+    document.getElementById("video");
+
+const canvas =
+    document.getElementById("canvas");
+
+const ctx =
+    canvas.getContext("2d");
+
+const startButton =
+    document.getElementById("start");
+
+const status =
+    document.getElementById("status");
+
+const model =
+    document.getElementById("model");
+
+
+/* ==========================================
+   VARIABLES
+========================================== */
+
+let handLandmarker = null;
+
+let lastVideoTime = -1;
+
+
+/*
+ * Model rotation
+ */
+
+let modelX = 0;
+
+let modelY = 75;
+
+
+/*
+ * Model zoom
+ */
+
+let modelRadius = 2.5;
+
+let smoothRadius = 2.5;
+
+
+/*
+ * Pinch state
+ */
+
+let isPinching = false;
+
+let previousPinchDistance = null;
+
+
+/*
+ * Prevent continuous reset
+ */
+
+let fistWasDetected = false;
+
+
+/* ==========================================
+   START CAMERA
+========================================== */
+
+startButton.addEventListener(
+
+    "click",
+
+    startCamera
+
+);
+
+
+async function startCamera() {
+
+    try {
+
+        status.innerText =
+            "Starting camera...";
+
+
+        const stream =
+            await navigator.mediaDevices
+                .getUserMedia({
+
+                    video: true,
+
+                    audio: false
+
+                });
+
+
+        video.srcObject = stream;
+
+
+        await video.play();
+
+
+        status.innerText =
+            "Camera working ✓";
+
+
+        canvas.width =
+            video.videoWidth;
+
+        canvas.height =
+            video.videoHeight;
+
+
+        await initializeMediaPipe();
+
+    }
+
+
+    catch (error) {
+
+        console.error(error);
+
+
+        status.innerText =
+            "Error: " + error.name;
+
+
+        alert(
+
+            error.name +
+
+            "\n\n" +
+
+            error.message
+
+        );
+
+    }
+
+}
+
+
+/* ==========================================
+   INITIALIZE MEDIAPIPE
+========================================== */
+
+async function initializeMediaPipe() {
+
+    try {
+
+        status.innerText =
+            "Loading MediaPipe...";
+
+
+        const vision =
+            await FilesetResolver
+                .forVisionTasks(
+
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
+
+                );
+
+
+        handLandmarker =
+            await HandLandmarker
+                .createFromOptions(
+
+                    vision,
+
+                    {
+
+                        baseOptions: {
+
+                            modelAssetPath:
+
+                            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+
+                            delegate: "CPU"
+
+                        },
+
+
+                        runningMode: "VIDEO",
+
+                        numHands: 1
+
+                    }
+
+                );
+
+
+        status.innerText =
+            "MediaPipe ready ✓ Show your hand";
+
+
+        detectHands();
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+
+            "MediaPipe error:",
+
+            error
+
+        );
+
+
+        status.innerText =
+            "MediaPipe error";
+
+
+        alert(
+
+            "MediaPipe error:\n\n" +
+
+            error.message
+
+        );
+
+    }
+
+}
+
+
+/* ==========================================
+   HAND DETECTION LOOP
+========================================== */
+
+function detectHands() {
+
+
+    if (!handLandmarker) {
+
+        requestAnimationFrame(
+            detectHands
+        );
+
+        return;
+
+    }
+
+
+    if (
+
+        video.currentTime !==
+
+        lastVideoTime
+
+    ) {
+
+
+        lastVideoTime =
+            video.currentTime;
+
+
+        const results =
+
+            handLandmarker
+                .detectForVideo(
+
+                    video,
+
+                    performance.now()
+
+                );
+
+
+        ctx.clearRect(
+
+            0,
+
+            0,
+
+            canvas.width,
+
+            canvas.height
+
+        );
+
+
+        if (
+
+            results.landmarks &&
+
+            results.landmarks.length > 0
+
+        ) {
+
+
+            const landmarks =
+
+                results.landmarks[0];
+
+
+            drawHand(landmarks);
+
+
+            /*
+             * Check fist first.
+             */
+
+            if (
+
+                detectFist(landmarks)
+
+            ) {
+
+
+                /*
+                 * Reset only when
+                 * fist first appears.
+                 */
+
+                if (!fistWasDetected) {
+
+                    resetModel();
+
+                    fistWasDetected = true;
+
+                }
+
+
+                status.innerText =
+                    "✊ Fist detected — Model reset";
+
+            }
+
+            else {
+
+
+                fistWasDetected = false;
+
+
+                /*
+                 * Normal controls
+                 */
+
+                controlRotation(
+                    landmarks
+                );
+
+
+                controlZoom(
+                    landmarks
+                );
+
+            }
+
+        }
+
+        else {
+
+
+            status.innerText =
+                "MediaPipe ready — show your hand";
+
+
+            isPinching = false;
+
+            previousPinchDistance = null;
+
+            fistWasDetected = false;
+
+        }
+
+    }
+
+
+    requestAnimationFrame(
+        detectHands
+    );
+
+}
+
+
+/* ==========================================
+   ROTATION CONTROL
+========================================== */
+
+function controlRotation(landmarks) {
+
+
+    const indexFinger =
+        landmarks[8];
+
+
+    const x =
+        indexFinger.x;
+
+
+    const y =
+        indexFinger.y;
+
+
+    modelX =
+        (x - 0.5) * 360;
+
+
+    modelY =
+        75 + (y - 0.5) * 80;
+
+
+    modelY =
+        Math.max(
+
+            20,
+
+            Math.min(
+
+                140,
+
+                modelY
+
+            )
+
+        );
+
+
+    updateModel();
+
+}
+
+
+/* ==========================================
+   PINCH / ZOOM CONTROL
+========================================== */
+
+function controlZoom(landmarks) {
+
+
+    const thumb =
+        landmarks[4];
+
+
+    const index =
+        landmarks[8];
+
+
+    const dx =
+        thumb.x - index.x;
+
+
+    const dy =
+        thumb.y - index.y;
+
+
+    const distance =
+
+        Math.sqrt(
+
+            dx * dx +
+
+            dy * dy
+
+        );
+
+
+    const pinchThreshold = 0.08;
+
+
+    if (
+
+        distance < pinchThreshold
+
+    ) {
+
+
+        if (!isPinching) {
+
+            isPinching = true;
+
+            previousPinchDistance =
+                distance;
+
+        }
+
+
+        status.innerText =
+            "🤏 Pinching — Zoom control";
+
+
+        previousPinchDistance =
+            distance;
+
+    }
+
+    else {
+
+
+        if (isPinching) {
+
+
+            const zoomAmount =
+
+                (distance -
+                 pinchThreshold) * 8;
+
+
+            smoothRadius =
+
+                2.5 - zoomAmount;
+
+
+            smoothRadius =
+
+                Math.max(
+
+                    1.0,
+
+                    Math.min(
+
+                        5.0,
+
+                        smoothRadius
+
+                    )
+
+                );
+
+        }
+
+
+        isPinching = false;
+
+
+        status.innerText =
+            "Hand detected ✓ Controlling model";
+
+    }
+
+
+    updateModel();
+
+}
+
+
+/* ==========================================
+   FIST DETECTION
+========================================== */
+
+function detectFist(landmarks) {
+
+
+    /*
+     * Wrist
+     */
+
+    const wrist =
+        landmarks[0];
+
+
+    /*
+     * Fingertips
+     */
+
+    const indexTip =
+        landmarks[8];
+
+    const middleTip =
+        landmarks[12];
+
+    const ringTip =
+        landmarks[16];
+
+    const pinkyTip =
+        landmarks[20];
+
+
+    /*
+     * Finger PIP joints
+     */
+
+    const indexPIP =
+        landmarks[6];
+
+    const middlePIP =
+        landmarks[10];
+
+    const ringPIP =
+        landmarks[14];
+
+    const pinkyPIP =
+        landmarks[18];
+
+
+    /*
+     * Calculate distances
+     * from fingertips to wrist.
+     */
+
+    const indexDistance =
+        distance(indexTip, wrist);
+
+    const middleDistance =
+        distance(middleTip, wrist);
+
+    const ringDistance =
+        distance(ringTip, wrist);
+
+    const pinkyDistance =
+        distance(pinkyTip, wrist);
+
+
+    /*
+     * Calculate PIP distances
+     * from wrist.
+     */
+
+    const indexPIPDistance =
+        distance(indexPIP, wrist);
+
+    const middlePIPDistance =
+        distance(middlePIP, wrist);
+
+    const ringPIPDistance =
+        distance(ringPIP, wrist);
+
+    const pinkyPIPDistance =
+        distance(pinkyPIP, wrist);
+
+
+    /*
+     * A finger is considered
+     * folded when its fingertip
+     * is closer to the wrist
+     * than its PIP joint.
+     */
+
+    const indexFolded =
+        indexDistance <
+        indexPIPDistance;
+
+    const middleFolded =
+        middleDistance <
+        middlePIPDistance;
+
+    const ringFolded =
+        ringDistance <
+        ringPIPDistance;
+
+    const pinkyFolded =
+        pinkyDistance <
+        pinkyPIPDistance;
+
+
+    /*
+     * Four fingers folded
+     * = fist
+     */
+
+    return (
+
+        indexFolded &&
+
+        middleFolded &&
+
+        ringFolded &&
+
+        pinkyFolded
+
+    );
+
+}
+
+
+/* ==========================================
+   DISTANCE BETWEEN TWO POINTS
+========================================== */
+
+function distance(a, b) {
+
+
+    const dx =
+        a.x - b.x;
+
+
+    const dy =
+        a.y - b.y;
+
+
+    const dz =
+        a.z - b.z;
+
+
+    return Math.sqrt(
+
+        dx * dx +
+
+        dy * dy +
+
+        dz * dz
+
+    );
+
+}
+
+
+/* ==========================================
+   RESET MODEL
+========================================== */
+
+function resetModel() {
+
+
+    /*
+     * Reset rotation
+     */
+
+    modelX = 0;
+
+    modelY = 75;
+
+
+    /*
+     * Reset zoom
+     */
+
+    modelRadius = 2.5;
+
+    smoothRadius = 2.5;
+
+
+    /*
+     * Reset pinch state
+     */
+
+    isPinching = false;
+
+    previousPinchDistance = null;
+
+
+    /*
+     * Update model
+     */
+
+    updateModel();
+
+
+    console.log(
+        "Model reset"
+    );
+
+}
+
+
+/* ==========================================
+   UPDATE MODEL
+========================================== */
+
+function updateModel() {
+
+
+    model.cameraOrbit =
+
+        `${modelX}deg ${modelY}deg ${smoothRadius}m`;
+
+}
+
+
+/* ==========================================
+   DRAW HAND
+========================================== */
+
+function drawHand(landmarks) {
+
+
+    const connections = [
+
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 4],
+
+        [0, 5],
+        [5, 6],
+        [6, 7],
+        [7, 8],
+
+        [5, 9],
+        [9, 10],
+        [10, 11],
+        [11, 12],
+
+        [9, 13],
+        [13, 14],
+        [14, 15],
+        [15, 16],
+
+        [13, 17],
+        [17, 18],
+        [18, 19],
+        [19, 20],
+
+        [0, 17]
+
+    ];
+
+
+    /*
+     * Connections
+     */
+
+    ctx.strokeStyle =
+        "lime";
+
+    ctx.lineWidth = 4;
+
+
+    for (
+
+        const [a, b]
+
+        of connections
+
+    ) {
+
+
+        const p1 =
+            landmarks[a];
+
+        const p2 =
+            landmarks[b];
+
+
+        ctx.beginPath();
+
+
+        ctx.moveTo(
+
+            p1.x * canvas.width,
+
+            p1.y * canvas.height
+
+        );
+
+
+        ctx.lineTo(
+
+            p2.x * canvas.width,
+
+            p2.y * canvas.height
+
+        );
+
+
+        ctx.stroke();
+
+    }
+
+
+    /*
+     * Landmarks
+     */
+
+    ctx.fillStyle =
+        "red";
+
+
+    for (
+
+        const point
+
+        of landmarks
+
+    ) {
+
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+
+            point.x * canvas.width,
+
+            point.y * canvas.height,
+
+            6,
+
+            0,
+
+            Math.PI * 2
+
+        );
+
+
+        ctx.fill();
+
+    }
+
+
+    /*
+     * Highlight fingertips
+     */
+
+    ctx.fillStyle =
+        "yellow";
+
+
+    const fingertips = [
+
+        landmarks[4],
+
+        landmarks[8],
+
+        landmarks[12],
+
+        landmarks[16],
+
+        landmarks[20]
+
+    ];
+
+
+    for (
+
+        const point
+
+        of fingertips
+
+    ) {
+
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+
+            point.x * canvas.width,
+
+            point.y * canvas.height,
+
+            9,
+
+            0,
+
+            Math.PI * 2
+
+        );
+
+
+        ctx.fill();
+
+    }
+
+}
+
+
+</script>
+
+</body>
+
+</html>
